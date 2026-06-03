@@ -176,7 +176,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 /// Custom header shown at the top of the menu: app glyph, name, and a colored status line.
 @MainActor
 final class MenuHeaderView: NSView {
-    private let titleLabel = NSTextField(labelWithString: "Display Anchor ⚓️")
+    private let titleLabel = NSTextField(labelWithString: "Display Anchor")
+    private let anchorView = NSImageView()
     private let statusDot = NSImageView()
     private let statusLabel = NSTextField(labelWithString: "Starting")
 
@@ -196,26 +197,72 @@ final class MenuHeaderView: NSView {
         let menuSize = NSFont.menuFont(ofSize: 0).pointSize
 
         // Title sits one step above the row text in size and weight — the top of the hierarchy.
-        titleLabel.font = .systemFont(ofSize: menuSize + 1, weight: .semibold)
+        let titleFont = NSFont.systemFont(ofSize: menuSize + 1, weight: .semibold)
+        let titleX: CGFloat = 16
+        let titleY: CGFloat = 26
+        let titleH: CGFloat = 20
+        titleLabel.font = titleFont
         titleLabel.textColor = .labelColor
-        titleLabel.frame = NSRect(x: 16, y: 26, width: 210, height: 20)
+
+        // The "D" has a left side bearing, so its ink starts slightly right of the frame origin.
+        // Use the true ink bounds (not optical bounds) so the status dot's left edge can sit exactly
+        // under the visible left edge of the letter.
+        let titleAttr = NSAttributedString(string: titleLabel.stringValue, attributes: [.font: titleFont])
+        let titleLeftBearing = max(0, CTLineGetImageBounds(
+            CTLineCreateWithAttributedString(titleAttr), nil).origin.x)
+        // Pad the measured width slightly: NSTextField needs a touch more than the exact glyph
+        // run or it clips the trailing character.
+        let titleWidth = ceil((titleLabel.stringValue as NSString).size(withAttributes: [.font: titleFont]).width) + 4
+        titleLabel.frame = NSRect(x: titleX, y: titleY, width: titleWidth, height: titleH)
         addSubview(titleLabel)
 
-        // Status row: quiet secondary text with a colored state dot, vertically centered on the label.
-        let dotSize: CGFloat = 8
-        let dotConfig = NSImage.SymbolConfiguration(pointSize: dotSize, weight: .bold)
-        statusDot.image = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: nil)?
-            .withSymbolConfiguration(dotConfig)
-        statusDot.image?.isTemplate = true
-        statusDot.contentTintColor = .systemGreen
-        statusDot.frame = NSRect(x: 17, y: 11, width: dotSize, height: dotSize)
-        addSubview(statusDot)
+        // Anchor glyph sits just after the name, sized to the title's cap height and centered on the
+        // text's optical midline (same frame-center/cap-center midpoint used for the status dot).
+        let anchorSize = ceil(titleFont.capHeight * 1.6)
+        let titleFrameCenterY = titleY + titleH / 2
+        let titleCapCenterY = titleFrameCenterY + (titleFont.capHeight / 2 + titleFont.descender / 2)
+        let anchorCenterY = (titleFrameCenterY + titleCapCenterY) / 2
+        anchorView.image = AnchorAsset.image
+        anchorView.imageScaling = .scaleProportionallyUpOrDown
+        anchorView.frame = NSRect(x: titleLabel.frame.maxX + 6,
+                                  y: anchorCenterY - anchorSize / 2,
+                                  width: anchorSize, height: anchorSize)
+        addSubview(anchorView)
 
-        statusLabel.font = .systemFont(ofSize: menuSize - 2, weight: .regular)
+        // Status row: quiet secondary text with a colored state dot. The dot's left edge lines up
+        // with the title's first letter above, and it is vertically centered on the label.
+        let leftMargin = titleX + titleLeftBearing + 2
+        let dotSize: CGFloat = 8
+        let dotGap: CGFloat = 6
+        let labelY: CGFloat = 7
+        let labelH: CGFloat = 16
+
+        let statusFont = NSFont.systemFont(ofSize: menuSize - 2, weight: .regular)
+        statusLabel.font = statusFont
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.lineBreakMode = .byTruncatingTail
-        statusLabel.frame = NSRect(x: 31, y: 7, width: 195, height: 16)
+        statusLabel.frame = NSRect(x: leftMargin + dotSize + dotGap, y: labelY, width: 195, height: labelH)
         addSubview(statusLabel)
+
+        // Center the dot on the text's optical midline. The frame center sits at the text's bottom
+        // and the cap-height center at its top, so the visual middle is the midpoint of the two.
+        let frameCenterY = labelY + labelH / 2
+        let capCenterY = frameCenterY + (statusFont.capHeight / 2 + statusFont.descender / 2)
+        let textCenterY = (frameCenterY + capCenterY) / 2
+
+        // Draw the dot as a template circle that fills its frame exactly, so the frame's left edge
+        // is the circle's left edge (unlike the SF "circle.fill" symbol, which has its own padding).
+        let dotImage = NSImage(size: NSSize(width: dotSize, height: dotSize), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(ovalIn: rect).fill()
+            return true
+        }
+        dotImage.isTemplate = true
+        statusDot.image = dotImage
+        statusDot.imageScaling = .scaleNone
+        statusDot.contentTintColor = .systemGreen
+        statusDot.frame = NSRect(x: leftMargin, y: textCenterY - dotSize / 2, width: dotSize, height: dotSize)
+        addSubview(statusDot)
     }
 
     func update(statusText: String, color: NSColor) {
@@ -248,8 +295,8 @@ final class MenuRowView: NSView {
 
     private let rowWidth: CGFloat = 260
     private let rowHeight: CGFloat = 22
-    private let iconLeading: CGFloat = 14
-    private let iconColumn: CGFloat = 18      // fallback width if the glyph size is unavailable
+    private let iconLeading: CGFloat = 16     // matches the header's left margin
+    private let iconColumn: CGFloat = 16      // fixed glyph box: every title starts at the same x
     private let iconTitleGap: CGFloat = 8
     private let trailingInset: CGFloat = 14
     private let accessoryGap: CGFloat = 6
@@ -319,11 +366,16 @@ final class MenuRowView: NSView {
     override func layout() {
         super.layout()
         let h = bounds.height
-        // Size the icon to its actual rendered glyph so the text gap matches across rows
-        // instead of being padded out by a fixed icon box.
-        let imageW = iconView.image?.size.width ?? iconColumn
-        let imageH = iconView.image?.size.height ?? iconColumn
-        iconView.frame = NSRect(x: iconLeading, y: (h - imageH) / 2, width: imageW, height: imageH)
+        // Center each glyph inside a fixed-width column and clamp oversized symbols (e.g. "power")
+        // down to it. This keeps every icon at one optical size and lets all titles start at the
+        // same x, instead of each title being shifted by its own glyph's native width.
+        let nativeW = iconView.image?.size.width ?? iconColumn
+        let nativeH = iconView.image?.size.height ?? iconColumn
+        let scale = min(1, min(iconColumn / nativeW, iconColumn / nativeH))
+        let imageW = nativeW * scale
+        let imageH = nativeH * scale
+        iconView.frame = NSRect(x: iconLeading + (iconColumn - imageW) / 2,
+                                y: (h - imageH) / 2, width: imageW, height: imageH)
 
         var trailingReserve = trailingInset
         switch accessory {
@@ -339,7 +391,7 @@ final class MenuRowView: NSView {
             trailingReserve = trailingInset + w + accessoryGap
         }
 
-        let titleX = iconLeading + imageW + iconTitleGap
+        let titleX = iconLeading + iconColumn + iconTitleGap
         titleLabel.sizeToFit()
         let titleH = titleLabel.frame.height
         let titleW = max(0, bounds.width - titleX - trailingReserve)
