@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "DisplayAnchor",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v12)
     ],
     products: [
         .executable(name: "DisplayAnchor", targets: ["DisplayAnchor"])

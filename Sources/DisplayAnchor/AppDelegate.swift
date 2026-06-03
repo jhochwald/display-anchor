@@ -64,14 +64,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         restoreMenuItem.image = Self.menuIcon("arrow.counterclockwise")
         pauseMenuItem.target = self
         pauseMenuItem.image = Self.menuIcon("pause.circle")
-        launchAtLoginMenuItem.target = self
-        launchAtLoginMenuItem.image = Self.menuIcon("power")
         menu.addItem(snapshotMenuItem)
         menu.addItem(restoreMenuItem)
         menu.addItem(pauseMenuItem)
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(launchAtLoginMenuItem)
-        menu.addItem(NSMenuItem.separator())
+
+        // Launch at Login relies on SMAppService (macOS 13+); omit it on older systems.
+        if #available(macOS 13.0, *) {
+            launchAtLoginMenuItem.target = self
+            launchAtLoginMenuItem.image = Self.menuIcon("power")
+            menu.addItem(launchAtLoginMenuItem)
+            menu.addItem(NSMenuItem.separator())
+        }
 
         let quitItem = NSMenuItem(title: "Quit Display Anchor", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
@@ -98,27 +102,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pauseMenuItem.title = paused ? "Resume Automatic Restore" : "Pause Automatic Restore"
         pauseMenuItem.image = Self.menuIcon(paused ? "play.circle" : "pause.circle")
 
-        switch LaunchAtLogin.status {
-        case .enabled:
-            launchAtLoginMenuItem.title = "Launch at Login"
-            launchAtLoginMenuItem.state = .on
-            launchAtLoginMenuItem.isEnabled = true
-        case .notRegistered:
-            launchAtLoginMenuItem.title = "Launch at Login"
-            launchAtLoginMenuItem.state = .off
-            launchAtLoginMenuItem.isEnabled = true
-        case .requiresApproval:
-            launchAtLoginMenuItem.title = "Approve Launch at Login..."
-            launchAtLoginMenuItem.state = .off
-            launchAtLoginMenuItem.isEnabled = true
-        case .notFound:
-            launchAtLoginMenuItem.title = "Launch at Login"
-            launchAtLoginMenuItem.state = .off
-            launchAtLoginMenuItem.isEnabled = true
-        @unknown default:
-            launchAtLoginMenuItem.title = "Launch at Login Unavailable"
-            launchAtLoginMenuItem.state = .off
-            launchAtLoginMenuItem.isEnabled = false
+        if #available(macOS 13.0, *) {
+            switch LaunchAtLogin.status {
+            case .enabled:
+                launchAtLoginMenuItem.title = "Launch at Login"
+                launchAtLoginMenuItem.state = .on
+                launchAtLoginMenuItem.isEnabled = true
+            case .notRegistered:
+                launchAtLoginMenuItem.title = "Launch at Login"
+                launchAtLoginMenuItem.state = .off
+                launchAtLoginMenuItem.isEnabled = true
+            case .requiresApproval:
+                launchAtLoginMenuItem.title = "Approve Launch at Login..."
+                launchAtLoginMenuItem.state = .off
+                launchAtLoginMenuItem.isEnabled = true
+            case .notFound:
+                launchAtLoginMenuItem.title = "Launch at Login"
+                launchAtLoginMenuItem.state = .off
+                launchAtLoginMenuItem.isEnabled = true
+            @unknown default:
+                launchAtLoginMenuItem.title = "Launch at Login Unavailable"
+                launchAtLoginMenuItem.state = .off
+                launchAtLoginMenuItem.isEnabled = false
+            }
         }
     }
 
@@ -141,6 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func toggleLaunchAtLogin() {
+        guard #available(macOS 13.0, *) else { return }
         do {
             switch LaunchAtLogin.status {
             case .enabled:

@@ -1,5 +1,6 @@
 import ServiceManagement
 
+@available(macOS 13.0, *)
 enum LaunchAtLogin {
     static var status: SMAppService.Status {
         SMAppService.mainApp.status
