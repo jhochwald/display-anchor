@@ -208,7 +208,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Display Anchor";
 				INFOPLIST_KEY_CFBundleName = "Display Anchor";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Jeff.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Jeffrey Schumann.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -236,7 +236,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Display Anchor";
 				INFOPLIST_KEY_CFBundleName = "Display Anchor";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Jeff.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Jeffrey Schumann.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

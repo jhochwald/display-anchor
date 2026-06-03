@@ -79,7 +79,7 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     <key>LSUIElement</key>
     <true/>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2026 Jeff.</string>
+    <string>Copyright © 2026 Jeffrey Schumann.</string>
 </dict>
 </plist>
 PLIST
@@ -90,7 +90,12 @@ RESOLVED_CODESIGN_IDENTITY="$(resolve_codesign_identity "$CODESIGN_IDENTITY")"
 
 if [[ -n "$RESOLVED_CODESIGN_IDENTITY" ]]; then
     if signing_identity_exists "$RESOLVED_CODESIGN_IDENTITY"; then
-        codesign --force --sign "$RESOLVED_CODESIGN_IDENTITY" --identifier "$BUNDLE_ID" "$APP_DIR"
+        codesign --force \
+            --timestamp \
+            --options runtime \
+            --sign "$RESOLVED_CODESIGN_IDENTITY" \
+            --identifier "$BUNDLE_ID" \
+            "$APP_DIR"
         echo "Signed $APP_DIR with identity: $RESOLVED_CODESIGN_IDENTITY"
     else
         echo "Requested signing identity not found: $RESOLVED_CODESIGN_IDENTITY"
