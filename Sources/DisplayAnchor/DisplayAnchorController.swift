@@ -120,7 +120,6 @@ final class DisplayAnchorController {
         lastKnownPermissionState = hasPermission
 
         guard hasPermission else {
-            diagnostics.write("permission missing; timers stopped")
             stableSnapshotTimer?.invalidate()
             restoreTimer?.invalidate()
             restoreTimer = nil
@@ -132,12 +131,10 @@ final class DisplayAnchorController {
         }
 
         guard !paused else {
-            diagnostics.write("permission available but app is paused")
             status = .paused
             return
         }
 
-        diagnostics.write("permission available; starting automatic snapshots")
         saveSnapshot(reason: "permission-refresh")
         startStableSnapshotTimer()
     }
@@ -205,7 +202,6 @@ final class DisplayAnchorController {
         }
 
         guard UserSessionState.isUnlocked else {
-            diagnostics.write("snapshot skipped reason=\(reason) session-locked")
             return
         }
 
@@ -214,7 +210,6 @@ final class DisplayAnchorController {
         if !bypassAutomaticGuards {
             if let automaticSnapshotSuppressedUntil,
                Date() < automaticSnapshotSuppressedUntil {
-                diagnostics.write("snapshot skipped reason=\(reason) holdUntil=\(Self.format(automaticSnapshotSuppressedUntil))")
                 return
             }
 
@@ -223,7 +218,6 @@ final class DisplayAnchorController {
                    savedTopology: lastStableSnapshot.topology,
                    currentTopology: snapshot.topology
                ) != .ready {
-                diagnostics.write("snapshot skipped reason=\(reason) topology-changed current=\(Self.describe(snapshot.topology)) lastStable=\(Self.describe(lastStableSnapshot.topology))")
                 return
             }
         }
@@ -240,12 +234,10 @@ final class DisplayAnchorController {
         do {
             try store.save(snapshotToSave)
             lastStableSnapshot = snapshotToSave
-            diagnostics.write("snapshot saved reason=\(reason) windows=\(snapshotToSave.windows.count) topology=\(Self.describe(snapshotToSave.topology))")
             if updateStatus {
                 status = .snapshotSaved(snapshotToSave.windows.count)
             }
         } catch {
-            diagnostics.write("snapshot error reason=\(reason) error=\(error.localizedDescription)")
             status = .error(error.localizedDescription)
         }
     }
@@ -256,11 +248,9 @@ final class DisplayAnchorController {
         }
 
         displaysAreSettling = true
-        diagnostics.write("freeze requested reason=\(reason)")
 
         // Preserve the earliest stable snapshot for the full disturbance cycle.
         guard frozenSnapshot == nil else {
-            diagnostics.write("freeze kept existing snapshot reason=\(reason)")
             return
         }
 
@@ -269,9 +259,7 @@ final class DisplayAnchorController {
 
             do {
                 try store.save(stableSnapshot)
-                diagnostics.write("freeze reused last stable snapshot reason=\(reason) session-locked stableTopology=\(Self.describe(stableSnapshot.topology))")
             } catch {
-                diagnostics.write("freeze error reason=\(reason) error=\(error.localizedDescription)")
                 status = .error(error.localizedDescription)
             }
             return
@@ -285,11 +273,9 @@ final class DisplayAnchorController {
                currentTopology: liveSnapshot.topology
            ) != .ready {
             snapshot = lastStableSnapshot
-            diagnostics.write("freeze reused last stable snapshot reason=\(reason) liveTopology=\(Self.describe(liveSnapshot.topology)) stableTopology=\(Self.describe(lastStableSnapshot.topology))")
         } else {
             guard let protectedSnapshot = fullscreenProtectedSnapshot(for: liveSnapshot, reason: reason) else {
                 frozenSnapshot = snapshotForFullscreenProtection()
-                diagnostics.write("freeze kept previous snapshot reason=\(reason) fullscreen-active")
                 return
             }
 
@@ -301,9 +287,7 @@ final class DisplayAnchorController {
         do {
             try store.save(snapshot)
             lastStableSnapshot = snapshot
-            diagnostics.write("freeze saved snapshot reason=\(reason) windows=\(snapshot.windows.count) topology=\(Self.describe(snapshot.topology))")
         } catch {
-            diagnostics.write("freeze error reason=\(reason) error=\(error.localizedDescription)")
             status = .error(error.localizedDescription)
         }
     }
@@ -316,17 +300,14 @@ final class DisplayAnchorController {
         }
 
         if !fullscreenScan.screensHaveSeparateSpaces {
-            diagnostics.write("snapshot skipped reason=\(reason) fullscreen-active shared-spaces fullscreenWindows=\(fullscreenScan.fullscreenWindowCount)")
             return nil
         }
 
         guard fullscreenScan.hasIdentifiedAffectedDisplays else {
-            diagnostics.write("snapshot skipped reason=\(reason) fullscreen-active unidentified-display fullscreenWindows=\(fullscreenScan.fullscreenWindowCount) identifiedDisplays=\(Self.describe(fullscreenScan.affectedDisplayIDs)) unidentified=\(fullscreenScan.unidentifiedFullscreenWindowCount)")
             return nil
         }
 
         guard let previousSnapshot = snapshotForFullscreenProtection() else {
-            diagnostics.write("snapshot skipped reason=\(reason) fullscreen-active no-previous-snapshot fullscreenDisplays=\(Self.describe(fullscreenScan.affectedDisplayIDs))")
             return nil
         }
 
@@ -334,7 +315,6 @@ final class DisplayAnchorController {
             savedTopology: previousSnapshot.topology,
             currentTopology: candidate.topology
         ) == .ready else {
-            diagnostics.write("snapshot skipped reason=\(reason) fullscreen-active topology-changed current=\(Self.describe(candidate.topology)) previous=\(Self.describe(previousSnapshot.topology))")
             return nil
         }
 
@@ -344,7 +324,6 @@ final class DisplayAnchorController {
             preservingDisplayIDs: fullscreenScan.affectedDisplayIDs
         )
 
-        diagnostics.write("snapshot merged reason=\(reason) fullscreenDisplays=\(Self.describe(fullscreenScan.affectedDisplayIDs)) previousWindows=\(previousSnapshot.windows.count) candidateWindows=\(candidate.windows.count) mergedWindows=\(mergedSnapshot.windows.count)")
         return mergedSnapshot
     }
 
@@ -375,7 +354,6 @@ final class DisplayAnchorController {
             frozenSnapshot = lastStableSnapshot
         }
         lastRestoreWaitMessage = nil
-        diagnostics.write("restore scheduled reason=\(reason) snapshotWindows=\(frozenSnapshot?.windows.count ?? 0) snapshotTopology=\(frozenSnapshot.map { Self.describe($0.topology) } ?? "none")")
         status = UserSessionState.isUnlocked ? .restoreScheduled : .restoreWaitingForUnlock
         restoreTimer?.invalidate()
         restoreDeadline = UserSessionState.isUnlocked ? Date().addingTimeInterval(restoreTimeout) : nil
@@ -399,7 +377,6 @@ final class DisplayAnchorController {
 
         if restoreDeadline == nil {
             restoreDeadline = Date().addingTimeInterval(restoreTimeout)
-            diagnostics.write("restore deadline started after unlock")
         }
 
         let snapshot: WindowSnapshot?
@@ -413,7 +390,6 @@ final class DisplayAnchorController {
         }
 
         guard let snapshot else {
-            diagnostics.write("restore failed: no snapshot")
             suppressAutomaticSnapshotsAfterFailedRestore()
             finishRestoreCycle(with: .error("No Snapshot"))
             return
@@ -427,21 +403,17 @@ final class DisplayAnchorController {
         guard readiness == .ready else {
             writeRestoreWait("restore waiting: displays not ready current=\(Self.describe(DisplayReader.currentTopology())) saved=\(Self.describe(snapshot.topology))")
             if let restoreDeadline, Date() >= restoreDeadline {
-                diagnostics.write("restore skipped: displays not ready before deadline")
                 suppressAutomaticSnapshotsAfterFailedRestore()
                 finishRestoreCycle(with: .restoreSkippedMissingDisplays)
             }
             return
         }
 
-        let startedAt = Date()
-        diagnostics.write("restore attempt starting savedWindows=\(snapshot.windows.count)")
+		_ = Date()
         let restoredCount = restorer.restore(snapshot: snapshot)
-        diagnostics.write("restore attempt finished restored=\(restoredCount) savedWindows=\(snapshot.windows.count) duration=\(Self.formatDuration(Date().timeIntervalSince(startedAt)))")
 
         guard restoredCount > 0 || snapshot.windows.isEmpty else {
             if let restoreDeadline, Date() >= restoreDeadline {
-                diagnostics.write("restore skipped: windows unavailable before deadline")
                 suppressAutomaticSnapshotsAfterFailedRestore()
                 finishRestoreCycle(with: .restoreSkippedWindowsUnavailable)
             }
@@ -462,7 +434,6 @@ final class DisplayAnchorController {
         frozenSnapshot = nil
         lastRestoreWaitMessage = nil
         self.status = status
-        diagnostics.write("restore cycle finished status=\(status.menuText)")
     }
 
     private func registerWorkspaceNotifications() {
@@ -494,7 +465,6 @@ final class DisplayAnchorController {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.diagnostics.write("notification session-inactive")
                 self?.freezeCurrentSnapshot(reason: "session-inactive")
             }
         }
@@ -525,7 +495,6 @@ final class DisplayAnchorController {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.diagnostics.write("notification session-active")
                 self?.scheduleRestore(reason: "session-active")
             }
         }
@@ -563,7 +532,6 @@ final class DisplayAnchorController {
         }
 
         lastRestoreWaitMessage = message
-        diagnostics.write(message)
     }
 
     private static func describe(_ topology: DisplayTopology) -> String {
