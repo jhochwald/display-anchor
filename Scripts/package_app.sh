@@ -425,7 +425,7 @@ create_info_plist() {
     <key>LSUIElement</key>
     <true/>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright © $(date +%Y) Jeffrey Schumann..</string>
+    <string>Copyright © $(date +%Y) Jeffrey Schumann. All rights reserved.</string>
 </dict>
 </plist>
 PLIST
